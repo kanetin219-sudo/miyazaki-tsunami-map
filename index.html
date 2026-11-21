@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>宮崎県 津波避難マップ</title>
+<meta name="description" content="宮崎県内の津波の指定緊急避難場所を、国土地理院の公開データ（各市町村が登録）から地図にしたページ。市町村で絞り込み、現在地から近い順に並べ、Googleマップで経路を開けます。">
+<meta name="theme-color" content="#0b2e59">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="津波避難マップ">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="">
+<style>
+:root{
+  --bg:#f4f7fa;
+  --surface:#ffffff;
+  --ink:#10233d;
+  --ink-sub:#4a5b70;
+  --line:#d5dde6;
+  --navy:#0b2e59;
+  --sea:#1a6fb0;
+  --green:#00a040;
+  --green-ink:#00782f;
+  --green-soft:#e3f5ea;
+  --warn-bg:#fff4e0;
+  --warn-ink:#7a4500;
+  --warn-line:#f0b860;
+  --chip:#eef2f6;
+  --chip-on:#0b2e59;
+  --chip-on-ink:#ffffff;
+  --mark-other:#1a6fb0;
+  --focus:#1a6fb0;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b1622;
+    --surface:#13212f;
+    --ink:#e8eef5;
+    --ink-sub:#a8b6c6;
+    --line:#2a3b4d;
+    --navy:#8fb8e8;
+    --sea:#6fb0e6;
+    --green:#2fc06a;
+    --green-ink:#5fd68d;
+    --green-soft:#12301f;
+    --warn-bg:#2e2210;
+    --warn-ink:#ffd9a0;
+    --warn-line:#8a6420;
+    --chip:#1d2e40;
+    --chip-on:#8fb8e8;
+    --chip-on-ink:#0b1622;
+    --mark-other:#6fb0e6;
+    --focus:#8fb8e8;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b1622;
+  --surface:#13212f;
+  --ink:#e8eef5;
+  --ink-sub:#a8b6c6;
+  --line:#2a3b4d;
+  --navy:#8fb8e8;
+  --sea:#6fb0e6;
+  --green:#2fc06a;
+  --green-ink:#5fd68d;
+  --green-soft:#12301f;
+  --warn-bg:#2e2210;
+  --warn-ink:#ffd9a0;
+  --warn-line:#8a6420;
+  --chip:#1d2e40;
+  --chip-on:#8fb8e8;
+  --chip-on-ink:#0b1622;
+  --mark-other:#6fb0e6;
+  --focus:#8fb8e8;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",Meiryo,sans-serif;
+  font-size:17px;line-height:1.7;overflow-x:hidden;
+}
+a{color:var(--sea)}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.wrap{max-width:760px;margin:0 auto;padding:0 16px}
+header.top{background:#0b2e59;color:#fff;padding:20px 0 18px;border-bottom:6px solid #00a040}
+header.top h1{margin:0;font-size:26px;line-height:1.35;letter-spacing:.02em}
+header.top p{margin:6px 0 0;font-size:15px;color:#d6e2f0}
+section{margin:22px 0}
+h2{font-size:21px;line-height:1.4;margin:0 0 10px;padding-left:10px;border-left:6px solid var(--green)}
+h3{font-size:19px;line-height:1.4;margin:0 0 6px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px}
+.alert{background:var(--surface);border:2px solid var(--green);border-radius:8px;padding:16px}
+.alert .big{font-size:24px;font-weight:800;line-height:1.4;color:var(--green-ink);margin:0 0 8px}
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0 4px}
+.fact{background:var(--bg);border-radius:6px;padding:10px 12px}
+.fact .k{font-size:13px;color:var(--ink-sub);line-height:1.4}
+.fact .v{font-size:28px;font-weight:800;color:var(--navy);line-height:1.2}
+.fact .v small{font-size:15px;font-weight:700}
+.note{font-size:13.5px;color:var(--ink-sub);line-height:1.6}
+.spot{background:var(--surface);border:1px solid var(--line);border-top:6px solid var(--green);border-radius:8px;padding:16px;margin:0 0 14px}
+.spot .no{display:inline-block;font-size:13px;font-weight:700;color:var(--green-ink);background:var(--green-soft);border-radius:4px;padding:1px 8px;margin-bottom:6px}
+.spot h3{font-size:21px}
+.spot .official{font-size:15px;color:var(--ink-sub);margin:0 0 8px}
+dl.kv{margin:8px 0 0;display:grid;grid-template-columns:6.2em 1fr;gap:6px 10px;font-size:16px}
+dl.kv dt{color:var(--ink-sub);font-weight:700}
+dl.kv dd{margin:0}
+.diff{margin-top:10px;background:var(--warn-bg);color:var(--warn-ink);border-left:4px solid var(--warn-line);border-radius:4px;padding:8px 10px;font-size:14.5px;line-height:1.6}
+.src{margin-top:8px;font-size:13px;color:var(--ink-sub);line-height:1.6;word-break:break-all}
+.btnrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:8px 16px;border-radius:6px;border:2px solid var(--navy);background:var(--surface);color:var(--navy);font-size:16px;font-weight:700;text-decoration:none;cursor:pointer;font-family:inherit;line-height:1.3}
+.btn.primary{background:var(--green);border-color:var(--green);color:#fff}
+.btn:disabled{opacity:.6}
+#map{height:62vh;min-height:340px;max-height:560px;border-radius:8px;border:1px solid var(--line);z-index:0}
+.controls{display:flex;flex-direction:column;gap:10px;margin:0 0 12px}
+.search{width:100%;font-size:17px;padding:11px 12px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font-family:inherit}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:4px;padding:6px 10px;font-size:15px;cursor:pointer;font-family:inherit;line-height:1.3}
+.chip[aria-pressed="true"]{background:var(--chip-on);color:var(--chip-on-ink);border-color:var(--chip-on)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:14px;color:var(--ink-sub);margin:8px 0 0}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.dot{width:14px;height:14px;border-radius:50%;display:inline-block;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+.status{font-size:15px;color:var(--ink-sub);margin:8px 0 0;min-height:1.6em}
+ol.list{list-style:none;margin:12px 0 0;padding:0;border-top:1px solid var(--line)}
+ol.list li{border-bottom:1px solid var(--line);padding:12px 2px;display:flex;gap:10px;align-items:flex-start}
+ol.list .meta{flex:1;min-width:0}
+ol.list .nm{font-weight:700;font-size:17px;line-height:1.45;word-break:break-word}
+ol.list .ad{font-size:14px;color:var(--ink-sub);line-height:1.5}
+ol.list .dist{font-size:15px;font-weight:700;color:var(--green-ink)}
+ol.list .tag{display:inline-block;font-size:12px;font-weight:700;border-radius:3px;padding:0 6px;margin-left:4px;vertical-align:2px;background:var(--green-soft);color:var(--green-ink)}
+ol.list .acts{display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+ol.list .acts .btn{min-height:40px;padding:4px 10px;font-size:14px}
+.more{margin-top:10px}
+ul.tips{margin:0;padding:0;list-style:none;counter-reset:t}
+ul.tips li{counter-increment:t;padding:10px 0 10px 40px;position:relative;border-bottom:1px solid var(--line)}
+ul.tips li:last-child{border-bottom:0}
+ul.tips li::before{content:counter(t);position:absolute;left:0;top:10px;width:28px;height:28px;background:var(--navy);color:var(--surface);font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center;border-radius:4px}
+ul.tips b{display:block;font-size:17px}
+ul.tips span{font-size:15px;color:var(--ink-sub)}
+ul.links{margin:0;padding:0;list-style:none}
+ul.links li{padding:10px 0;border-bottom:1px solid var(--line)}
+ul.links li:last-child{border-bottom:0}
+ul.links a{font-weight:700;font-size:17px}
+ul.links .note{display:block}
+.steps{display:grid;gap:12px}
+.steps h3{font-size:17px;margin:0 0 4px}
+.steps ol{margin:0;padding-left:1.3em}
+ul.srcs{margin:0;padding-left:1.1em;font-size:14px;line-height:1.65;word-break:break-all}
+ul.srcs li{margin-bottom:8px}
+footer{background:#0b2e59;color:#d6e2f0;padding:18px 0 28px;margin-top:28px;font-size:14.5px;line-height:1.7}
+footer strong{color:#fff}
+.leaflet-popup-content{font-size:15px;line-height:1.55;margin:12px 14px}
+.leaflet-popup-content .pn{font-weight:700;font-size:16px;margin-bottom:2px}
+.leaflet-popup-content .pa{color:#4a5b70;font-size:13.5px}
+.leaflet-popup-content a.go{display:inline-block;margin-top:8px;background:#00a040;color:#fff;font-weight:700;text-decoration:none;padding:8px 12px;border-radius:6px}
+.leaflet-container{font-family:inherit}
+@media (max-width:420px){
+  header.top h1{font-size:23px}
+  .fact .v{font-size:24px}
+  dl.kv{grid-template-columns:5.4em 1fr;font-size:15.5px}
+}
+.wrap{padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+select.search{appearance:auto}
+table.tsu{width:100%;border-collapse:collapse;font-size:15px}
+table.tsu th,table.tsu td{border-bottom:1px solid var(--line);padding:7px 6px;text-align:right}
+table.tsu th:first-child,table.tsu td:first-child{text-align:left}
+table.tsu thead th{color:var(--ink-sub);font-size:13px;font-weight:700}
+table.tsu tr.on td{background:var(--green-soft);font-weight:800}
+.sel-facts{margin:10px 0 0}
+
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <h1>宮崎県 津波避難マップ</h1>
+    <p>YouTube「かねちん｜宮崎にワクワクを」の動画「南海トラフが来たら、どこに逃げる？宮崎の津波避難場所に行ってみた」の関連ページです。</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+<section aria-labelledby="h-first">
+  <div class="alert">
+    <p class="big" id="h-first">強い揺れや長い揺れを感じたら、すぐ高い所へ。避難は徒歩で。</p>
+    <div class="note" style="font-size:15px;color:var(--ink)">宮崎市の津波ハザードマップより：「強い揺れや弱くても長い揺れがあったらすぐに避難を開始しましょう」（気象庁の資料を掲載）。「津波から安全に避難する心得」では「地震後はすぐに避難」「避難は『遠く』よりも『高く』に」「避難は徒歩で（車による避難は渋滞を引き起こし、かえって危険）」。</div>
+    <div class="facts">
+      <div class="fact"><div class="k">宮崎市の津波高 最大値</div><div class="v">16<small>m</small></div></div>
+      <div class="fact"><div class="k">宮崎市の津波到達時間 最短値</div><div class="v">18<small>分</small></div></div>
+    </div>
+    <p class="note">宮崎県の想定（令和7年8月公表の津波浸水想定。令和8年3月「宮崎県地震・津波及び被害の想定について」表1.1・表1.3）。県全体の最大値は17m（串間市）、最短値は14分（日南市）。沿岸の市町ごとの値は下の表にあります。</p>
+  </div>
+</section>
+
+<section aria-labelledby="h-spots">
+  <h2 id="h-spots">動画で行った3か所（宮崎市）</h2>
+
+  <article class="spot">
+    <span class="no">1</span>
+    <h3>命の丘（宮崎港 一ツ葉地区の津波避難高台）</h3>
+    <p class="official">国土地理院データ上の名称：宮崎港津波避難施設（避難高台）一ツ葉地区</p>
+    <dl class="kv">
+      <dt>住所</dt><dd>宮崎市新別府町1400-16</dd>
+      <dt>高さ</dt><dd>天端高 13.0〜13.5m（宮崎港の津波避難施設として国土交通省 九州地方整備局の資料に記載。同資料の想定最大水位は9〜10m）</dd>
+      <dt>収容の目安</dt><dd>3,280人（宮崎県の資料「県内最大規模の避難施設」。東地区の既設の避難高台とあわせて約5,000人）</dd>
+      <dt>指定</dt><dd>宮崎市の指定緊急避難場所（津波）</dd>
+    </dl>
+    <div class="diff">動画で紹介した現地看板の「海抜13.5m」は、公式資料の天端高13.0〜13.5mの範囲内です。宮崎県の資料では、サンビーチ一ツ葉・サンマリーナ宮崎の利用者が避難するための「津波避難施設（命の丘）」として令和2年9月に完成。なお、県の資料では東地区（南）の避難高台も「命の丘」と呼ばれています（標高13.5m・避難対象約1,300人）。</div>
+    <div class="btnrow">
+      <button class="btn primary" type="button" data-focus="宮崎港津波避難施設（避難高台）一ツ葉地区">地図で見る</button>
+      <a class="btn" href="https://www.google.com/maps/dir/?api=1&amp;destination=31.923318,131.467565" target="_blank" rel="noopener">Googleマップで経路</a>
+    </div>
+    <p class="src">出典：国土地理院 指定緊急避難場所データ（宮崎市）／宮崎県中部港湾事務所「令和8年度 業務概要」／宮崎県 港湾資料（3,280人）／国土交通省九州地方整備局「宮崎港の防波堤（南）整備」。URLは下の「出典」に。</p>
+  </article>
+
+  <article class="spot">
+    <span class="no">2</span>
+    <h3>ひなた宮崎県総合運動公園の津波避難場所</h3>
+    <p class="official">宮崎県の公園案内「津波から身を守るための備えと対応」</p>
+    <dl class="kv">
+      <dt>園内の避難場所</dt><dd>4エリア：A サンマリンスタジアム／B 避難高台／C 避難デッキ／D 青島青少年自然の家</dd>
+      <dt>避難高台</dt><dd>盛土で造った高台。直高8m（宮崎県「インフラ整備効果事例集 vol.12」）</dd>
+      <dt>避難デッキ</dt><dd>園内4か所（同資料の図で①②⑤⑥）</dd>
+      <dt>収容の目安</dt><dd>公園全体で約6万1千人が避難可能（同資料）</dd>
+      <dt>公園の想定</dt><dd>南海トラフ地震で到達時間 最短25分、浸水深 約6m（公園案内）</dd>
+    </dl>
+    <div class="diff">動画では「運動公園内に2か所」と紹介しましたが、宮崎県の公園案内では園内の避難場所は上の4エリアです。避難高台・避難デッキの標高（海抜）は、公式資料では確認できませんでした。地図にはサンマリンスタジアム宮崎と青島青少年自然の家（どちらも宮崎市の指定緊急避難場所〔津波〕）を表示しています。避難高台は公式の位置データが見つからなかったため点を置いていません。</div>
+    <div class="btnrow">
+      <button class="btn primary" type="button" data-focus="宮崎県総合運動公園サンマリンスタジアム宮崎">地図で見る</button>
+      <a class="btn" href="https://www.google.com/maps/dir/?api=1&amp;destination=31.830976,131.445901" target="_blank" rel="noopener">経路（スタジアム）</a>
+    </div>
+    <p class="src">出典：宮崎県「津波から身を守るための備えと対応 ひなた宮崎県総合運動公園」／宮崎県 県土整備部「宮崎県におけるインフラ整備効果事例集（vol.12）」令和8年1月／国土地理院 指定緊急避難場所データ（宮崎市）。</p>
+  </article>
+
+  <article class="spot">
+    <span class="no">3</span>
+    <h3>青島パーキングエリア（国道220号）</h3>
+    <p class="official">国土交通省の資料で「（避難場所）青島パーキングエリア」と記載</p>
+    <dl class="kv">
+      <dt>場所</dt><dd>宮崎市青島地区の国道220号沿い</dd>
+      <dt>避難階段</dt><dd>国道220号の法面を使った緊急避難階段を3か所整備（平成24年12月27日開通）。階段幅2m・延長59m・高低差約27m</dd>
+      <dt>標高</dt><dd>公式資料では確認できませんでした</dd>
+      <dt>収容の目安</dt><dd>公式資料では確認できませんでした</dd>
+    </dl>
+    <div class="diff">動画では「標高34m」と紹介しましたが、この数字は公式資料で確認できていません（確認できたのは避難階段の高低差 約27m）。また、国土地理院の宮崎市の指定緊急避難場所データ（2026年11月時点）には「青島パーキングエリア」という名称では載っていません。公式の位置データが見つからないため、地図に点は置いていません。</div>
+    <div class="btnrow">
+      <a class="btn" href="https://www.google.com/maps/search/?api=1&amp;query=%E9%9D%92%E5%B3%B6%E3%83%91%E3%83%BC%E3%82%AD%E3%83%B3%E3%82%B0+%E5%AE%AE%E5%B4%8E%E5%B8%82" target="_blank" rel="noopener">Googleマップで名前を検索</a>
+    </div>
+    <p class="src">出典：国土交通省「一般国道220号（宮崎市青島地区）緊急避難階段」（道路整備効果事例）。</p>
+  </article>
+</section>
+
+<section aria-labelledby="h-map">
+  <h2 id="h-map">宮崎県内の津波の指定緊急避難場所（1106か所）</h2>
+  <p class="note" style="margin:0 0 10px">国土地理院の「指定緊急避難場所データ」から、県内の市町村が「津波」に対応として登録している場所をすべて表示しています。津波避難タワー・高台・裏山のほか、学校や、市町村が指定したマンション・ビルなども含まれます。</p>
+  <div class="controls">
+    <label for="muni" class="note" style="margin:0;color:var(--ink)">市町村</label>
+    <select id="muni" class="search"></select>
+    <div id="muniInfo" class="card sel-facts" hidden></div>
+    <div class="btnrow" style="margin-top:0">
+      <button class="btn primary" type="button" id="locBtn">現在地から近い順に並べる</button>
+    </div>
+    <p class="note" style="margin:0">位置情報はこの端末の中で距離を計算するためだけに使い、どこにも送信しません。ただし地図の画像を読み込むときに、表示している範囲が国土地理院の地図サーバーに伝わります。距離は直線距離です。実際の道のりは長くなります。</p>
+    <label for="q" class="note" style="margin:0;color:var(--ink)">名前・住所で絞り込み</label>
+    <input id="q" class="search" type="search" placeholder="例：一ツ葉、佐土原、土々呂、油津" autocomplete="off">
+    <div id="subWrap" hidden>
+      <div class="chips" role="group" aria-label="宮崎市内の地区で絞り込み（住所の町名で分けた目安）" id="chips"></div>
+      <p class="note" style="margin:6px 0 0">宮崎市内の地区ボタンは、住所に含まれる町名で分けた目安です（市の地区区分そのものではありません）。</p>
+    </div>
+    <div class="chips" role="group" aria-label="種類で絞り込み">
+      <button class="chip" type="button" id="facOnly" aria-pressed="false">名前に「タワー・高台・裏山・避難施設」などを含む場所だけ</button>
+    </div>
+  </div>
+  <div id="map" role="region" aria-label="津波避難場所の地図"></div>
+  <div class="legend">
+    <span><i class="dot" style="background:#00a040"></i>名前に「タワー・高台・裏山・避難施設」など</span>
+    <span><i class="dot" style="background:#1a6fb0"></i>建物・学校など</span>
+    <span><i class="dot" style="background:#e8f0ff;border-color:#1a4fd0;box-shadow:0 0 0 3px rgba(26,79,208,.35)"></i>現在地</span>
+  </div>
+  <p class="status" id="status" aria-live="polite"></p>
+  <ol class="list" id="list"></ol>
+  <button class="btn more" type="button" id="moreBtn" hidden>さらに表示</button>
+  <p class="note" id="noneNote"></p>
+</section>
+
+<section aria-labelledby="h-tsu">
+  <h2 id="h-tsu">沿岸の市町ごとの津波の想定</h2>
+  <div class="card">
+    <table class="tsu" id="tsuTable">
+      <thead><tr><th>市町</th><th>最大津波高</th><th>最短到達時間</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="src">宮崎県の想定（令和7年8月）。出典：宮崎県「宮崎県地震・津波及び被害の想定について」令和8年3月 表1.1（津波高の最大値＝市町ごとに最も高い値）・表1.3（津波到達時間の最短値＝海岸線から沖合約30m地点で、地震発生直後から水位が＋1mになるまでの時間。市町ごとに最も早い値）。同じ市町の中でも場所によって違います。</p>
+  </div>
+</section>
+
+<section aria-labelledby="h-tips">
+  <h2 id="h-tips">津波から安全に避難する心得</h2>
+  <div class="card">
+    <ul class="tips">
+      <li><b>地震後はすぐに避難</b><span>情報を待つより先に、まずは避難。</span></li>
+      <li><b>避難は「遠く」よりも「高く」に</b><span>近くの鉄筋コンクリート造りなどの高い建物の上階へ。</span></li>
+      <li><b>避難は徒歩で</b><span>車での避難は渋滞を引き起こし、かえって危険。</span></li>
+      <li><b>テレビ・ラジオなどで正しい情報を</b><span>うわさや間違った情報に惑わされない。</span></li>
+      <li><b>海辺や川べりには近付かない</b><span>護岸や堤防が崩れる恐れがあります。</span></li>
+      <li><b>地域での協力が大切</b><span>隣近所で声を掛け合って避難。</span></li>
+      <li><b>水が引いても勝手に戻らない</b><span>警報・注意報が解除されるまで避難場所に。</span></li>
+    </ul>
+    <p class="src">出典：宮崎市 津波ハザードマップ（冊子版）9ページ「津波から安全に避難する心得」を要約。</p>
+  </div>
+</section>
+
+<section aria-labelledby="h-links">
+  <h2 id="h-links">公式の情報</h2>
+  <div class="card">
+    <ul class="links">
+      <li><a href="https://www.pref.miyazaki.lg.jp/kiki-kikikanri/bosai/keikaku/20250731185345.html" target="_blank" rel="noopener">宮崎県「津波浸水想定」の更新について（令和7年8月）</a><span class="note">沿岸の市町ごとの浸水想定の図があります。</span></li>
+      <li><a href="https://www.city.miyazaki.miyazaki.jp/life/fire_department/hazard_map/803.html" target="_blank" rel="noopener">宮崎市津波ハザードマップ（宮崎市公式）</a><span class="note">最新の想定はWeb版・アプリ版に反映。新しい冊子版は作成中（令和9年3月までに完成見込み）と市が案内しています。</span></li>
+      <li><a href="https://webgis.alandis.jp/miyazaki45/portal/consent03.html" target="_blank" rel="noopener">宮崎市WEB版ハザードマップ</a></li>
+      <li><a href="https://hinanmap.gsi.go.jp/index.html" target="_blank" rel="noopener">国土地理院 指定緊急避難場所・指定避難所データ</a><span class="note">お住まいの市町村のハザードマップも必ず確認してください。</span></li>
+    </ul>
+  </div>
+</section>
+
+<section aria-labelledby="h-home">
+  <h2 id="h-home">このページをホーム画面に入れる</h2>
+  <div class="card steps">
+    <div>
+      <h3>iPhone（Safari）</h3>
+      <ol><li>画面下の共有ボタン（四角から上向き矢印）をタップ</li><li>「ホーム画面に追加」をタップ</li><li>右上の「追加」をタップ</li></ol>
+    </div>
+    <div>
+      <h3>Android（Chrome）</h3>
+      <ol><li>右上のメニュー（縦の3つの点）をタップ</li><li>「ホーム画面に追加」をタップ</li><li>「追加」をタップ</li></ol>
+    </div>
+    <p class="note" style="margin:0">地図の画像はインターネットにつながっていないと表示されません。停電や通信障害に備えて、近くの避難場所は前もって実際に歩いて確かめておきましょう。</p>
+  </div>
+</section>
+
+<section aria-labelledby="h-src">
+  <h2 id="h-src">出典とご利用上の注意</h2>
+  <div class="card">
+    <p class="note" style="margin-top:0;color:var(--ink)">地図の避難場所は、市町村長が指定した指定緊急避難場所を各市町村が国土地理院に登録したデータです。最新でない場合や未掲載の場合があるため、最新かつ詳細の状況は必ず各市町村にご確認ください。指定緊急避難場所は災害の種類ごとに指定されています（このページは「津波」に対応する場所だけを表示）。指定緊急避難場所（命を守るために緊急に逃げる場所）と、指定避難所（被災後に一定期間滞在する施設）は別のものです。</p>
+    <ul class="srcs">
+      <li>国土地理院「指定緊急避難場所・指定避難所データ」宮崎県内26市町村の指定緊急避難場所（市町村別CSV）<br>https://hinanmap.gsi.go.jp/hinanjocp/defaultFtpData/csv/（市町村コード）_2.csv<br>2026年11月21日取得。市町村ごとの登録更新日は市町村を選ぶと表示されます。</li>
+      <li>宮崎県「宮崎県地震・津波及び被害の想定について」令和8年3月（表1.1 各市町の津波高、表1.3 各市町の津波到達時間）<br>https://www.pref.miyazaki.lg.jp/documents/106883/106883_20260330090758-1.pdf<br>2026年11月21日確認</li>
+      <li>宮崎市「宮崎市津波ハザードマップ」（2026年9月30日更新のページ）と冊子版 8ページ「津波から命を守るために」・9ページ「津波から安全に避難する心得」<br>https://www.city.miyazaki.miyazaki.jp/life/fire_department/hazard_map/803.html<br>https://www.city.miyazaki.miyazaki.jp/fs/6/7/6/1/4/8/_/52aaceec010.pdf<br>https://www.city.miyazaki.miyazaki.jp/fs/6/7/6/1/4/9/_/52aaceec011.pdf<br>2026年11月21日確認</li>
+      <li>宮崎県中部港湾事務所「令和8年度 業務概要」（津波避難施設〔命の丘〕令和2年9月完成）<br>https://www.pref.miyazaki.lg.jp/documents/53011/53011_20260820143658-1.pdf</li>
+      <li>宮崎県 港湾資料（一ツ葉地区 津波避難高台完成・3,280人の収容が可能）<br>https://www.pref.miyazaki.lg.jp/documents/59377/59377_20210304150024-1.pdf</li>
+      <li>宮崎県 港湾資料（東地区 避難高台「命の丘」標高13.5m・避難対象人数 約1,300人）<br>https://www.pref.miyazaki.lg.jp/documents/27560/27560_20170203134539-1.pdf</li>
+      <li>国土交通省 九州地方整備局「宮崎港の防波堤（南）整備」（津波避難施設 天端高13.0〜13.5m）<br>https://www.pa.qsr.mlit.go.jp/miyazaki/docs/miyazaki_bouhatei.pdf</li>
+      <li>宮崎県「津波から身を守るための備えと対応 ひなた宮崎県総合運動公園」<br>https://www.pref.miyazaki.lg.jp/documents/95355/95355_20250114180232-1.pdf</li>
+      <li>宮崎県 県土整備部「宮崎県におけるインフラ整備効果事例集（vol.12）」令和8年1月<br>https://www.pref.miyazaki.lg.jp/documents/107405/107405_20260309205933-1.pdf</li>
+      <li>国土交通省「一般国道220号（宮崎市青島地区）緊急避難階段」<br>https://www.mlit.go.jp/road/koka12/pdf/8-18.pdf</li>
+      <li>背景地図：国土地理院 地理院タイル（淡色地図）https://maps.gsi.go.jp/development/ichiran.html</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <strong>この地図は2026年11月時点の公式データをもとに作成しています。最新は各市町村（宮崎市なら宮崎市）の公式情報を確認してください。</strong>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin=""></script>
+<script>
+(function(){
+  var META = {"munis":[{"c":"45201","name":"宮崎市","upd":"2026-11-04","count":301,"nodata":false,"tsu":[16,18]},{"c":"45202","name":"都城市","upd":"2025-01-23","count":0,"nodata":false,"tsu":null},{"c":"45203","name":"延岡市","upd":"2026-10-13","count":427,"nodata":false,"tsu":[14,17]},{"c":"45204","name":"日南市","upd":"2026-08-31","count":82,"nodata":false,"tsu":[14,14]},{"c":"45205","name":"小林市","upd":"2025-12-19","count":0,"nodata":false,"tsu":null},{"c":"45206","name":"日向市","upd":"2025-11-17","count":139,"nodata":false,"tsu":[15,17]},{"c":"45207","name":"串間市","upd":"2025-03-17","count":17,"nodata":false,"tsu":[17,15]},{"c":"45208","name":"西都市","upd":"2026-11-11","count":0,"nodata":false,"tsu":null},{"c":"45209","name":"えびの市","upd":"2025-02-12","count":0,"nodata":false,"tsu":null},{"c":"45341","name":"三股町","upd":"2025-01-23","count":0,"nodata":false,"tsu":null},{"c":"45361","name":"高原町","upd":"2025-01-23","count":0,"nodata":true,"tsu":null},{"c":"45382","name":"国富町","upd":"2025-01-23","count":0,"nodata":true,"tsu":null},{"c":"45383","name":"綾町","upd":"2025-01-23","count":0,"nodata":false,"tsu":null},{"c":"45401","name":"高鍋町","upd":"2025-10-08","count":55,"nodata":false,"tsu":[11,20]},{"c":"45402","name":"新富町","upd":"2025-01-23","count":33,"nodata":false,"tsu":[10,21]},{"c":"45403","name":"西米良村","upd":"2025-01-23","count":0,"nodata":false,"tsu":null},{"c":"45404","name":"木城町","upd":"2025-10-15","count":0,"nodata":false,"tsu":null},{"c":"45405","name":"川南町","upd":"2025-10-27","count":12,"nodata":false,"tsu":[14,20]},{"c":"45406","name":"都農町","upd":"2026-01-08","count":25,"nodata":false,"tsu":[14,20]},{"c":"45421","name":"門川町","upd":"2025-01-23","count":15,"nodata":false,"tsu":[12,16]},{"c":"45429","name":"諸塚村","upd":"2025-01-23","count":0,"nodata":false,"tsu":null},{"c":"45430","name":"椎葉村","upd":"2025-04-24","count":0,"nodata":false,"tsu":null},{"c":"45431","name":"美郷町","upd":"2026-09-08","count":0,"nodata":false,"tsu":null},{"c":"45441","name":"高千穂町","upd":"2025-01-23","count":0,"nodata":true,"tsu":null},{"c":"45442","name":"日之影町","upd":"2026-03-09","count":0,"nodata":false,"tsu":null},{"c":"45443","name":"五ヶ瀬町","upd":"2025-01-23","count":0,"nodata":false,"tsu":null}]};
+  var PTS = [];
+  var MUNI = {}; META.munis.forEach(function(m){ MUNI[m.c]=m; });
+  var AREAS = [
+    {label:'宮崎市内すべて', kw:[]},
+    {label:'佐土原（佐土原町・下田島・下那珂）', kw:['佐土原町','下田島','下那珂','上田島']},
+    {label:'一ツ葉・宮崎港（新別府町・山崎町・阿波岐原町・港東）', kw:['新別府町','山崎町','阿波岐原町','港東','港2']},
+    {label:'檍（吉村町・大島町・新城町・昭栄町）', kw:['吉村町','大島町','新城町','昭栄町','新栄町']},
+    {label:'赤江（赤江・田吉・恒久・本郷）', kw:['赤江','田吉','恒久','本郷']},
+    {label:'木花（熊野・郡司分）', kw:['熊野','郡司分']},
+    {label:'青島（青島・折生迫・加江田・内海）', kw:['青島','折生迫','加江田','内海']}
+  ];
+  var muni = '', areaIdx = 0, facOnly = false, here = null, shown = 30;
+  var q = document.getElementById('q');
+  var sel = document.getElementById('muni');
+  var listEl = document.getElementById('list');
+  var statusEl = document.getElementById('status');
+  var moreBtn = document.getElementById('moreBtn');
+  var infoEl = document.getElementById('muniInfo');
+  var subWrap = document.getElementById('subWrap');
+
+  function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function route(p){return 'https://www.google.com/maps/dir/?api=1&destination='+p.la+','+p.lo;}
+  function dist(a,b,c,d){
+    var R=6371000, t=Math.PI/180, x=(c-a)*t, y=(d-b)*t;
+    var h=Math.sin(x/2)*Math.sin(x/2)+Math.cos(a*t)*Math.cos(c*t)*Math.sin(y/2)*Math.sin(y/2);
+    return 2*R*Math.asin(Math.sqrt(h));
+  }
+  function fmt(m){return m<1000? Math.round(m/10)*10+' m' : (m/1000).toFixed(1)+' km';}
+  function ymd(s){var p=String(s).split('-'); return p.length===3? p[0]+'年'+(+p[1])+'月'+(+p[2])+'日' : s;}
+
+  // municipality select + table + note
+  var opt = '<option value="">宮崎県内すべて</option>';
+  META.munis.filter(function(m){return m.count>0;}).forEach(function(m){ opt += '<option value="'+m.c+'">'+esc(m.name)+'（'+m.count+'か所）</option>'; });
+  sel.innerHTML = opt;
+  var none = META.munis.filter(function(m){return m.count===0 && !m.nodata;}).map(function(m){return m.name;});
+  var nod = META.munis.filter(function(m){return m.nodata;}).map(function(m){return m.name;});
+  document.getElementById('noneNote').textContent =
+    '国土地理院のデータで「津波」に対応する指定緊急避難場所の登録がない市町村：'+none.join('、')+'。指定緊急避難場所のデータ自体が公開されていない町（指定避難所データのみ公開）：'+nod.join('、')+'。';
+  var tb = '';
+  META.munis.filter(function(m){return m.tsu;}).forEach(function(m){
+    tb += '<tr data-c="'+m.c+'"><td>'+esc(m.name)+'</td><td>'+m.tsu[0]+'m</td><td>'+m.tsu[1]+'分</td></tr>';
+  });
+  document.querySelector('#tsuTable tbody').innerHTML = tb;
+
+  function showInfo(){
+    document.querySelectorAll('#tsuTable tr[data-c]').forEach(function(r){ r.classList.toggle('on', r.getAttribute('data-c')===muni); });
+    if(!muni){ infoEl.hidden = true; return; }
+    var m = MUNI[muni];
+    var h = '<div style="font-weight:800;font-size:18px">'+esc(m.name)+'</div>';
+    if(m.tsu){
+      h += '<div class="facts"><div class="fact"><div class="k">最大津波高（県の想定）</div><div class="v">'+m.tsu[0]+'<small>m</small></div></div>'+
+           '<div class="fact"><div class="k">最短到達時間（県の想定）</div><div class="v">'+m.tsu[1]+'<small>分</small></div></div></div>';
+    }
+    h += '<div class="note">津波の指定緊急避難場所 '+m.count+'か所（国土地理院データ・'+esc(m.name)+'の登録更新日 '+ymd(m.upd)+'）</div>';
+    infoEl.innerHTML = h; infoEl.hidden = false;
+  }
+
+  var map = null, markers = [], hereMarker = null;
+  var hasL = typeof L !== 'undefined';
+  if(hasL){
+    map = L.map('map',{scrollWheelZoom:false}).setView([32.1,131.5],9);
+    L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png',{
+      maxZoom:18, minZoom:5,
+      attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener">国土地理院</a>'
+    }).addTo(map);
+  } else {
+    document.getElementById('map').innerHTML = '<p style="padding:16px">地図を読み込めませんでした。下の一覧と「経路」は使えます。</p>';
+  }
+  function popupHtml(p){
+    var d = here? '<div>現在地から直線 '+fmt(dist(here[0],here[1],p.la,p.lo))+'</div>' : '';
+    return '<div class="pn">'+esc(p.n)+'</div><div class="pa">'+esc(p.a)+'</div><div class="pa">'+esc(MUNI[p.m].name)+'の指定緊急避難場所（津波）</div>'+d+
+      '<a class="go" href="'+route(p)+'" target="_blank" rel="noopener">Googleマップで経路</a>';
+  }
+
+  function match(p){
+    if(muni && p.m!==muni) return false;
+    if(facOnly && !p.f) return false;
+    var hay = p.n+' '+p.a;
+    if(muni==='45201'){
+      var kw = AREAS[areaIdx].kw;
+      if(kw.length && !kw.some(function(k){return hay.indexOf(k)>=0;})) return false;
+    }
+    var s = q.value.trim();
+    if(s){
+      var parts = s.split(/[\s　]+/);
+      for(var i=0;i<parts.length;i++){ if(parts[i] && hay.indexOf(parts[i])<0) return false; }
+    }
+    return true;
+  }
+
+  function render(fit){
+    var idx = [];
+    PTS.forEach(function(p,i){ if(match(p)) idx.push(i); });
+    if(here){
+      idx.sort(function(a,b){return dist(here[0],here[1],PTS[a].la,PTS[a].lo)-dist(here[0],here[1],PTS[b].la,PTS[b].lo);});
+    }
+    if(map){
+      markers.forEach(function(m){ if(map.hasLayer(m)) map.removeLayer(m); });
+      idx.forEach(function(i){ markers[i].addTo(map); });
+      if(fit && idx.length){
+        if(here){
+          var b = L.latLngBounds([here]);
+          idx.slice(0,5).forEach(function(i){ b.extend([PTS[i].la,PTS[i].lo]); });
+          map.fitBounds(b,{padding:[30,30],maxZoom:16});
+        } else {
+          map.fitBounds(L.latLngBounds(idx.map(function(i){return [PTS[i].la,PTS[i].lo];})),{padding:[20,20],maxZoom:16});
+        }
+      }
+    }
+    var html = '';
+    idx.slice(0,shown).forEach(function(i){
+      var p = PTS[i];
+      var d = here? '<div class="dist">直線 '+fmt(dist(here[0],here[1],p.la,p.lo))+'</div>' : '';
+      html += '<li><div class="meta">'+d+'<div class="nm">'+esc(p.n)+(p.f?'<span class="tag">タワー・高台など</span>':'')+'</div><div class="ad">'+esc(p.a)+'</div></div>'+
+        '<div class="acts"><a class="btn" href="'+route(p)+'" target="_blank" rel="noopener">経路</a><button class="btn" type="button" data-i="'+i+'">地図</button></div></li>';
+    });
+    listEl.innerHTML = html || '<li><div class="meta">条件に合う場所がありません。</div></li>';
+    moreBtn.hidden = idx.length <= shown;
+    statusEl.textContent = (here? '現在地から近い順' : '一覧')+'：'+idx.length+'か所中 '+Math.min(shown,idx.length)+'件を表示';
+  }
+
+  function focusPoint(i){
+    var p = PTS[i];
+    if(!map) return;
+    if(!map.hasLayer(markers[i])) markers[i].addTo(map);
+    map.setView([p.la,p.lo],16);
+    markers[i].openPopup();
+    document.getElementById('map').scrollIntoView({behavior:'smooth',block:'center'});
+  }
+  listEl.addEventListener('click',function(e){
+    var b = e.target.closest('button[data-i]');
+    if(b) focusPoint(+b.getAttribute('data-i'));
+  });
+  document.querySelectorAll('[data-focus]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var name = b.getAttribute('data-focus');
+      for(var i=0;i<PTS.length;i++){ if(PTS[i].n===name && PTS[i].m==='45201'){ focusPoint(i); return; } }
+    });
+  });
+
+  var chipsEl = document.getElementById('chips');
+  AREAS.forEach(function(a,i){
+    var c = document.createElement('button');
+    c.type='button'; c.className='chip'; c.textContent=a.label;
+    c.setAttribute('aria-pressed', i===0?'true':'false');
+    c.addEventListener('click',function(){
+      areaIdx=i; shown=30;
+      chipsEl.querySelectorAll('.chip').forEach(function(x,j){x.setAttribute('aria-pressed', j===i?'true':'false');});
+      render(true);
+    });
+    chipsEl.appendChild(c);
+  });
+  sel.addEventListener('change',function(){
+    muni = sel.value; areaIdx = 0; shown = 30;
+    chipsEl.querySelectorAll('.chip').forEach(function(x,j){x.setAttribute('aria-pressed', j===0?'true':'false');});
+    subWrap.hidden = muni!=='45201';
+    showInfo(); render(true);
+  });
+  var fo = document.getElementById('facOnly');
+  fo.addEventListener('click',function(){ facOnly=!facOnly; fo.setAttribute('aria-pressed',facOnly?'true':'false'); shown=30; render(true); });
+  var tmr;
+  q.addEventListener('input',function(){ clearTimeout(tmr); tmr=setTimeout(function(){shown=30; render(true);},200); });
+  moreBtn.addEventListener('click',function(){ shown+=30; render(false); });
+
+  var locBtn = document.getElementById('locBtn');
+  locBtn.addEventListener('click',function(){
+    if(!('geolocation' in navigator)){ statusEl.textContent='この端末・ブラウザでは位置情報が使えません。'; return; }
+    locBtn.disabled = true; statusEl.textContent='現在地を確認しています…';
+    navigator.geolocation.getCurrentPosition(function(pos){
+      locBtn.disabled = false;
+      here = [pos.coords.latitude, pos.coords.longitude];
+      if(map){
+        if(hereMarker) map.removeLayer(hereMarker);
+        hereMarker = L.circleMarker(here,{radius:9,color:'#1a4fd0',weight:3,fillColor:'#e8f0ff',fillOpacity:1}).addTo(map).bindPopup('現在地（この端末の中だけで使用）');
+      }
+      shown=30; render(true);
+      listEl.scrollIntoView({behavior:'smooth',block:'start'});
+    },function(err){
+      locBtn.disabled = false;
+      statusEl.textContent = err.code===1 ? '位置情報の利用が許可されていません。端末やブラウザの設定で許可すると使えます。' : '現在地を取得できませんでした。電波の良い場所でもう一度お試しください。';
+    },{enableHighAccuracy:true, timeout:15000, maximumAge:60000});
+  });
+
+  statusEl.textContent = '避難場所のデータを読み込んでいます…';
+  fetch('points.json').then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); }).then(function(d){
+    PTS = d;
+    if(map){
+      PTS.forEach(function(p,i){
+        var m = L.circleMarker([p.la,p.lo],{radius: p.f? 8:6, weight:2, color:'#ffffff', fillOpacity:.95, fillColor: p.f? '#00a040' : '#1a6fb0'});
+        m.bindPopup(function(){return popupHtml(p);});
+        markers[i]=m;
+      });
+    }
+    render(true);
+  }).catch(function(){
+    statusEl.textContent = '避難場所のデータを読み込めませんでした。通信状態を確かめて、ページを読み込み直してください。';
+  });
+})();
+</script>
+</body>
+</html>
